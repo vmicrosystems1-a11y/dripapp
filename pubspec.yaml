@@ -1,0 +1,15 @@
+name: irrigation_app
+description: IoT drip irrigation dashboard with Firebase Realtime Database
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^3.15.2
+  firebase_database: ^11.3.10
+  firebase_auth: ^5.7.0
+  cupertino_icons: ^1.0.8
+flutter:
+  uses-material-design: true

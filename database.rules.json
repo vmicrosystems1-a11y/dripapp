@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "irrigation": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
