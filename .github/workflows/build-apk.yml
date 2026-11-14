@@ -1,5 +1,4 @@
-
-name: Build Drip Irrigation APK
+name: Build Drip Irrigation 2 APK
 
 on:
   workflow_dispatch:
@@ -12,51 +11,65 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v5
+      - name: Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - name: Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Generate clean Android project
+      - name: Create Android app with new package name
         shell: bash
         run: |
-          mkdir -p /tmp/drip_sources
-          cp -R lib pubspec.yaml /tmp/drip_sources/
-          cp android/app/google-services.json /tmp/drip_sources/google-services.json
-          flutter create --platforms=android --org com.example --project-name drip_irrigation_app /tmp/drip_build
-          cp /tmp/drip_sources/lib/*.dart /tmp/drip_build/lib/
+          set -euo pipefail
+          test -f lib/main.dart
+          test -f lib/firebase_options.dart
+          flutter create --platforms=android --org com.vmicrosystems --project-name drip_irrigation2 /tmp/drip_build
+          cp -R lib/. /tmp/drip_build/lib/
+          cp pubspec.yaml /tmp/drip_build/pubspec.yaml
           rm -rf /tmp/drip_build/test
-          printf "analyzer:\n  errors:\n    invalid_annotation_target: ignore\n" > /tmp/drip_build/analysis_options.yaml
-          cp /tmp/drip_sources/pubspec.yaml /tmp/drip_build/pubspec.yaml
-          cp /tmp/drip_sources/google-services.json /tmp/drip_build/android/app/google-services.json
+          printf 'analyzer:\n  errors:\n    invalid_annotation_target: ignore\n' > /tmp/drip_build/analysis_options.yaml
           python3 scripts/configure_android.py /tmp/drip_build
 
-      - name: Install Flutter dependencies
+      - name: Install dependencies
         working-directory: /tmp/drip_build
         run: flutter pub get
 
-      - name: Check Dart syntax and analyze
+      - name: Check Dart code
         working-directory: /tmp/drip_build
         run: |
           dart format --output=none lib
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Build installable APK
+      - name: Build universal APK
         working-directory: /tmp/drip_build
         run: flutter build apk --release
 
-      - name: Upload APK artifact
+      - name: Verify APK package and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=/tmp/drip_build/build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)
+          "$AAPT" dump badging "$APK" | grep '^package:'
+          "$AAPT" dump badging "$APK" | grep -q "name='com.vmicrosystems.drip_irrigation2'"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose "$APK"
+          sha256sum "$APK"
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: drip-irrigation-android-apk
+          name: drip-irrigation-2-apk
           path: /tmp/drip_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
